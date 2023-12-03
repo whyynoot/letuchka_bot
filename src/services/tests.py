@@ -17,29 +17,46 @@ from ..models.test import RawTest, Test, TestAnswerValue, TestQuestion,\
         TestVariant, StudentWrittenTest,\
         WrittenTest, TestAnswer, TestAnswerType
 from ..utils.get_from_list import get_from_list
-# from sentence_transformers import SentenceTransformer, util
-
-# model.cuda()
+import torch
+from transformers import AutoTokenizer, AutoModel
+from sklearn.metrics.pairwise import cosine_similarity
 
 class TestAnswerProcessor():
-    MODEL_PATH = "rubert-tiny2"
+    MODEL_PATH = "src/rubert-tiny2"
 
     def __init__(self):
-        try: 
-            self.__model = SentenceTransformer('cointegrated/rubert-tiny2')
+        try:
+            self.__tokenizer = AutoTokenizer.from_pretrained(self.MODEL_PATH)
+            self.__model = AutoModel.from_pretrained(self.MODEL_PATH)
+
+            # Only use if GPU available
+            if torch.cuda.is_available():
+                self.__model.cuda()
         except Exception as e:
             raise Exception(f"Cannot load TestAnswerProcessor: {e}")
 
     def process_answer(self, reference_answer, answer):
         try:
-            # embedding_1= self.__model.encode(reference_answer, convert_to_tensor=True)
-            # embedding_2 = self.__model.encode(answer, convert_to_tensor=True)
+            reference_vector = self.embed_bert_cls(reference_answer)
+            answer_vector= self.embed_bert_cls(answer)
 
-            return util.pytorch_cos_sim(embedding_1, embedding_2).item()
+            similarity_score = self.calculate_cosine_similarity(reference_vector, answer_vector)
+
+            return similarity_score
+
         except Exception as e:
-            print(f"error ocured processing answer with TestAnswerProcessor")
+            raise Exception(f"Error processing answer: {e}")
 
-        return 0.0
+    def embed_bert_cls(self, text):
+        t = self.__tokenizer(text, padding=True, truncation=True, return_tensors='pt')
+        with torch.no_grad():
+            model_output = self.__model(**{k: v.to(self.__model.device) for k, v in t.items()})
+        embeddings = model_output.last_hidden_state[:, 0, :]
+        embeddings = torch.nn.functional.normalize(embeddings)
+        return embeddings[0].cpu().numpy()
+
+    def calculate_cosine_similarity(self, vector1, vector2):
+        return cosine_similarity(vector1.reshape(1, -1), vector2.reshape(1, -1))[0, 0]
          
 
 
