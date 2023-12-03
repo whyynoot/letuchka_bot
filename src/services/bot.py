@@ -179,8 +179,11 @@ class Bot:
     #region helpers
 
     def __send_message(self, context, user_id, answer):
-        for message in answer.text.messages:
-            context.bot.sendMessage(chat_id=user_id, text=message, reply_markup=answer.markup)
+        try:
+            for message in answer.text.messages:
+                context.bot.sendMessage(chat_id=user_id, text=message, reply_markup=answer.markup)
+        except Exception as e: 
+            print("error sending message to user, ignoring...")
 
     def __restart_dialog(self, update, context, user_id):
         del self.__dialogs[user_id]

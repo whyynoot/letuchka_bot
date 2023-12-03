@@ -30,3 +30,5 @@ tzdata==2022.5
 tzlocal==4.2
 wrapt==1.14.1
 XlsxWriter==3.0.3
+sentence-transformers==2.2.2
+# python-dotenv==1.0.0

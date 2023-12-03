@@ -1,5 +1,8 @@
-FROM docker.io/balaant/iu5-common-python:latest
+FROM python:3.9
 WORKDIR /usr/app
 
 COPY . .
-CMD python main.py
+RUN pip3 install --upgrade pip
+# RUN pip3 install -r requirements.txt
+RUN pip3 install --no-cache-dir -r requirements.txt
+CMD python3 main.py

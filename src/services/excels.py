@@ -62,11 +62,11 @@ class ExcelService():
             text = row['вопрос']
             answer_variants = None
             type = row['тип ответа']
-            if type == TestAnswerType.MULTIPLE_CHOICE.value\
-                    or type == TestAnswerType.SINGLE_CHOICE.value:
+            if type.lower() == TestAnswerType.MULTIPLE_CHOICE.value\
+                    or type.lower() == TestAnswerType.SINGLE_CHOICE.value:
                 text = text.split('\n')
-                answer_variants = text[1:]
-                text = text[0]
+                answer_variants = ''.join(text[1:])
+                text = ''.join(text[0])
 
             answer = None if pd.isna(row['ответ']) else row['ответ']
             if answer is not None:
@@ -78,6 +78,7 @@ class ExcelService():
             max_mark = row['макс балл']
 
             question = TestQuestion(type, text, answer_variants, answer, max_mark, id)
+            print(question)
             questions.append(question)
 
         return questions
@@ -170,7 +171,8 @@ class ExcelService():
                 **ROW_BG_COLORED_FORMAT,
                 **WRAPPED_FORMAT,
                 }))
-            sheet.write(1, 1 + col_offset, question.answer, book.add_format({
+            print(question.answer)
+            sheet.write(1, 1 + col_offset, str(question.answer), book.add_format({
                 **ROW_BG_COLORED_FORMAT,
                 **WRAPPED_FORMAT,
                 }))

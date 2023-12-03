@@ -17,6 +17,30 @@ from ..models.test import RawTest, Test, TestAnswerValue, TestQuestion,\
         TestVariant, StudentWrittenTest,\
         WrittenTest, TestAnswer, TestAnswerType
 from ..utils.get_from_list import get_from_list
+# from sentence_transformers import SentenceTransformer, util
+
+# model.cuda()
+
+class TestAnswerProcessor():
+    MODEL_PATH = "rubert-tiny2"
+
+    def __init__(self):
+        try: 
+            self.__model = SentenceTransformer('cointegrated/rubert-tiny2')
+        except Exception as e:
+            raise Exception(f"Cannot load TestAnswerProcessor: {e}")
+
+    def process_answer(self, reference_answer, answer):
+        try:
+            # embedding_1= self.__model.encode(reference_answer, convert_to_tensor=True)
+            # embedding_2 = self.__model.encode(answer, convert_to_tensor=True)
+
+            return util.pytorch_cos_sim(embedding_1, embedding_2).item()
+        except Exception as e:
+            print(f"error ocured processing answer with TestAnswerProcessor")
+
+        return 0.0
+         
 
 
 class TestsTable():
@@ -29,6 +53,8 @@ class TestsTable():
         self.__students = UsersTable(db)
         self.__groups = GroupsTable(db)
         self.__excel = ExcelService()
+        self.__answer_processor = TestAnswerProcessor()
+        
 
 
     # region Test entities
@@ -327,35 +353,54 @@ class TestsTable():
 
 
     # region Check
-
+    # TODO: Rubert addition
     def __check_answer(self,
             question: TestQuestion,
             answer: TestAnswerValue) -> Union[float, None]:
         """Checks test question answer and returns mark if possible"""
         if question.type == TestAnswerType.LECTURE.value:
-            return Levenshtein.ratio(\
-                    cast(str, question.answer),\
-                    cast(str, answer))
+            print(answer, question.answer, question.max_mark, question)
+            print("Trying to process answer simillarity...")
+            similarity = self.__answer_processor.process_answer(reference_answer=question.answer, answer=answer)
+            
+            return self.mark_based_on_similarity(similarity=similarity, max_mark=question.max_mark)
 
         if question.type == TestAnswerType.SINGLE_CHOICE.value:
-            return int(question.answer == answer)
+            print("Single choice answer processing...")
+            print(answer, question.answer, type(answer), type(question.answer))
+            if str(answer) == str(question.answer):
+                return float(question.max_mark)
+            else:
+                return 0.0
 
         if question.type == TestAnswerType.MULTIPLE_CHOICE.value:
+            print(answer, question.answer_variants, question.max_mark, question)
             if question.answer_variants is None:
                 raise Exception('Cannot check answer. Answer variants' +\
                         ' are not provided for a MULTIPLE_CHOICE question.')
-
+            print(question.answer_variants, type(question.answer_variants))
+            print(answer, type(answer))
             correct_answers = []
             student_answers = []
-            for i in range(len(question.answer_variants)):
-                correct_answers.append(i + 1 in cast(list[int], question.answer))
-                student_answers.append(i in cast(list[int], answer))
-            variant_count = len(question.answer_variants)
-            student_count = 0
-            for i in range(variant_count):
-                if correct_answers[i] == student_answers[i]:
-                    student_count += 1
-            return student_count / variant_count
+            if answer == question.answer_variants:
+                return question.max_mark
+            else:
+                return 0
+            # for i in range(len(student_answers)):
+
+
+            # correct_answers = []
+            # student_answers = []
+            # for i in range(len(question.answer_variants)):
+            #     correct_answers.append(i + 1 in cast(list[int], question.answer))
+            #     student_answers.append(i in cast(list[int], answer))
+            # variant_count = len(question.answer_variants)
+            # student_count = 0
+            # for i in range(variant_count):
+            #     if correct_answers[i] == student_answers[i]:
+            #         student_count += 1
+            #return student_count / variant_count
+            
 
         return None
 
@@ -398,6 +443,19 @@ class TestsTable():
 
 
     # region Variants
+
+    def mark_based_on_similarity(self, similarity, max_mark) -> float:
+        result = 0
+        if similarity > 0.9:
+            result = max_mark
+        elif similarity > 0.8:
+            result = 0.8 * max_mark
+        elif similarity > 0.7:
+            result = 0.7 * max_mark
+        elif similarity > 0.6:
+            result = 0.5 * max_mark
+        return result
+
 
     def get_random_variant(self, test_id: uuid.UUID) -> Union[TestVariant, None]:
         test = self.get('_id', test_id)
