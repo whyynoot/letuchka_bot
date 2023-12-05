@@ -21,11 +21,10 @@ from ..models.test import RawTest,\
         TestQuestion,\
         TestVariant,\
         TestAnswerType
+from ..utils.get_numbers_from_str import extract_numbers
 
 
 class ExcelService():
-
-
     # region Reading
 
     def read_test(self, source: RawTest) -> Test:
@@ -60,25 +59,18 @@ class ExcelService():
             id = uuid.uuid4()
 
             text = row['вопрос']
+            answer_type = row['тип ответа'].lower()
             answer_variants = None
-            type = row['тип ответа']
-            if type.lower() == TestAnswerType.MULTIPLE_CHOICE.value\
-                    or type.lower() == TestAnswerType.SINGLE_CHOICE.value:
-                text = text.split('\n')
-                answer_variants = ''.join(text[1:])
-                text = ''.join(text[0])
-
-            answer = None if pd.isna(row['ответ']) else row['ответ']
-            if answer is not None:
-                if type == TestAnswerType.MULTIPLE_CHOICE.value:
-                    answer = list(map(lambda a: int(a.strip()), answer.split(',')))
-                elif type == TestAnswerType.SINGLE_CHOICE.value:
-                    answer = int(answer)
-
+            answer = str(row['ответ'])
             max_mark = row['макс балл']
+            if answer_type == TestAnswerType.MULTIPLE_CHOICE.value:
+                answer_variants = extract_numbers(answer)
+            elif answer_type == TestAnswerType.SINGLE_CHOICE.value:
+                answer_variants = extract_numbers(answer)
 
-            question = TestQuestion(type, text, answer_variants, answer, max_mark, id)
-            print(question)
+            question = TestQuestion(answer_type, text, answer_variants, answer, max_mark, id)
+
+
             questions.append(question)
 
         return questions
@@ -171,7 +163,7 @@ class ExcelService():
                 **ROW_BG_COLORED_FORMAT,
                 **WRAPPED_FORMAT,
                 }))
-            print(question.answer)
+            #print(question.answer)
             sheet.write(1, 1 + col_offset, str(question.answer), book.add_format({
                 **ROW_BG_COLORED_FORMAT,
                 **WRAPPED_FORMAT,
@@ -241,9 +233,9 @@ class ExcelService():
 
                 mark = student.answers[i].mark if i < len(student.answers) else 0
                 mark_cell = xls_utility.xl_rowcol_to_cell(2 + row_offset, 2 + col_offset)
-                max_mark_cell = xls_utility.xl_rowcol_to_cell(1, 2 + col_offset)
                 mark_cells.append(mark_cell)
-                sheet.write(mark_cell, f'={mark or 0} * {max_mark_cell}')
+                sheet.write(mark_cell, f'={mark}')
+                # sheet.write(mark_cell, f'={mark or 0} * {max_mark_cell}')
 
                 col_offset += 2
 

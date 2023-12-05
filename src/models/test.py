@@ -18,7 +18,7 @@ TestAnswerValue = Union[str, int, list[int]]
 class RawTestQuestion:
     type: TestAnswerType
     text: str
-    answer_variants: Union[list[str], None]
+    answer_variants: any
     answer: Union[TestAnswerValue, None]
     max_mark: float
 

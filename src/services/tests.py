@@ -20,6 +20,8 @@ from ..utils.get_from_list import get_from_list
 import torch
 from transformers import AutoTokenizer, AutoModel
 from sklearn.metrics.pairwise import cosine_similarity
+from ..utils.get_numbers_from_str import extract_numbers
+
 
 class TestAnswerProcessor():
     MODEL_PATH = "src/rubert-tiny2"
@@ -35,14 +37,14 @@ class TestAnswerProcessor():
         except Exception as e:
             raise Exception(f"Cannot load TestAnswerProcessor: {e}")
 
-    def process_answer(self, reference_answer, answer):
+    def process_answer(self, reference_answer, answer) -> float:
         try:
             reference_vector = self.embed_bert_cls(reference_answer)
             answer_vector= self.embed_bert_cls(answer)
 
             similarity_score = self.calculate_cosine_similarity(reference_vector, answer_vector)
 
-            return similarity_score
+            return float(similarity_score)
 
         except Exception as e:
             raise Exception(f"Error processing answer: {e}")
@@ -307,6 +309,7 @@ class TestsTable():
         question = self.get_question(written_test.test_id, student_test.variant_id, None, question_id)
         if question is None:
             raise Exception('Cannot save student\'s answer for a test. Question was not found')
+        print(question, text)
 
         mark = self.__check_answer(question, text)
         id = uuid.uuid4()
@@ -370,39 +373,49 @@ class TestsTable():
 
 
     # region Check
-    # TODO: Rubert addition
     def __check_answer(self,
             question: TestQuestion,
             answer: TestAnswerValue) -> Union[float, None]:
-        """Checks test question answer and returns mark if possible"""
+        print(question, answer)
         if question.type == TestAnswerType.LECTURE.value:
-            print(answer, question.answer, question.max_mark, question)
-            print("Trying to process answer simillarity...")
             similarity = self.__answer_processor.process_answer(reference_answer=question.answer, answer=answer)
-            
             return self.mark_based_on_similarity(similarity=similarity, max_mark=question.max_mark)
+        elif question.type == TestAnswerType.MULTIPLE_CHOICE.value or question.type == TestAnswerType.SINGLE_CHOICE.value:
+            answer_list = extract_numbers(answer)
+            return self.mark_based_on_accuracy(question.answer_variants, answer_list, question.max_mark)
+        else:
+            return 0
+        #     return self.mark_based_on_similarity(similarity=similarity, max_mark=question.max_mark)
 
-        if question.type == TestAnswerType.SINGLE_CHOICE.value:
-            print("Single choice answer processing...")
-            print(answer, question.answer, type(answer), type(question.answer))
-            if str(answer) == str(question.answer):
-                return float(question.max_mark)
-            else:
-                return 0.0
+        """Checks test question answer and returns mark if possible"""
+        # if question.type == TestAnswerType.LECTURE.value:
+        #     print(answer, question.answer, question.max_mark, question)
+        #     print("Trying to process answer simillarity...")
+        #     similarity = self.__answer_processor.process_answer(reference_answer=question.answer, answer=answer)
+            
+        #     return self.mark_based_on_similarity(similarity=similarity, max_mark=question.max_mark)
 
-        if question.type == TestAnswerType.MULTIPLE_CHOICE.value:
-            print(answer, question.answer_variants, question.max_mark, question)
-            if question.answer_variants is None:
-                raise Exception('Cannot check answer. Answer variants' +\
-                        ' are not provided for a MULTIPLE_CHOICE question.')
-            print(question.answer_variants, type(question.answer_variants))
-            print(answer, type(answer))
-            correct_answers = []
-            student_answers = []
-            if answer == question.answer_variants:
-                return question.max_mark
-            else:
-                return 0
+        # if question.type == TestAnswerType.SINGLE_CHOICE.value:
+        #     print("Single choice answer processing...")
+        #     print(answer, question.answer, type(answer), type(question.answer))
+        #     if str(answer) == str(question.answer):
+        #         return float(question.max_mark)
+        #     else:
+        #         return 0.0
+
+        # if question.type == TestAnswerType.MULTIPLE_CHOICE.value:
+        #     print(answer, question.answer_variants, question.max_mark, question)
+        #     if question.answer_variants is None:
+        #         raise Exception('Cannot check answer. Answer variants' +\
+        #                 ' are not provided for a MULTIPLE_CHOICE question.')
+        #     print(question.answer_variants, type(question.answer_variants))
+        #     print(answer, type(answer))
+        #     correct_answers = []
+        #     student_answers = []
+        #     if answer == question.answer_variants:
+        #         return question.max_mark
+        #     else:
+        #         return 0
             # for i in range(len(student_answers)):
 
 
@@ -419,7 +432,7 @@ class TestsTable():
             #return student_count / variant_count
             
 
-        return None
+        #return None
 
     def post_finished(self, filename: str) -> WrittenTest:
         """
@@ -461,19 +474,6 @@ class TestsTable():
 
     # region Variants
 
-    def mark_based_on_similarity(self, similarity, max_mark) -> float:
-        result = 0
-        if similarity > 0.9:
-            result = max_mark
-        elif similarity > 0.8:
-            result = 0.8 * max_mark
-        elif similarity > 0.7:
-            result = 0.7 * max_mark
-        elif similarity > 0.6:
-            result = 0.5 * max_mark
-        return result
-
-
     def get_random_variant(self, test_id: uuid.UUID) -> Union[TestVariant, None]:
         test = self.get('_id', test_id)
         if test is None: return None
@@ -504,4 +504,46 @@ class TestsTable():
         if len(variant.questions) <= index: return None
         return variant.questions[index]
 
+    # endregion
+
+    # region Marks
+
+    def mark_based_on_similarity(self, similarity, max_mark) -> float:
+        result = 0
+        if similarity > 0.9:
+            result = max_mark
+        elif similarity > 0.7:
+            result = max_mark * similarity
+
+        # elif similarity > 0.8:
+        #     result = 0.8 * max_mark
+        # elif similarity > 0.7:
+        #     result = 0.7 * max_mark
+        # elif similarity > 0.6:
+        #     result = 0.5 * max_mark
+        return result
+    
+    def mark_based_on_accuracy(self, reference_list, received_list, max_mark) -> float:
+        answer_price = max_mark / len(reference_list)
+        mark = 0.0
+
+        reference_list = sorted(reference_list)
+        received_list = sorted(received_list)
+
+        reference_flag = len(reference_list)
+        for i in range(len(received_list)):
+            if reference_flag <= 0:
+                mark -= answer_price
+                continue
+
+            if received_list[i] in reference_list:
+                mark += answer_price
+                reference_flag -= 1
+            else:
+                mark -= answer_price
+        
+        if mark < 0:
+            return 0.0
+        
+        return mark    
     # endregion

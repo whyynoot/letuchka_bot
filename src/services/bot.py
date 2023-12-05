@@ -130,7 +130,10 @@ class Bot:
         elif (previousMessageId == TEST_QUESTION_ID):
             student_test = self.__db.tests.get_student(self.__writtenTest.id, 'student_id', tg_user.id)
             question_id = self.__db.tests.get_question(self.__testId, student_test.variant_id, len(student_test.answers)).id
-            self.__db.tests.save_answer(tg_user.id, self.__writtenTest.id, question_id, update.message.text)
+            try:
+                self.__db.tests.save_answer(tg_user.id, self.__writtenTest.id, question_id, update.message.text)
+            except Exception as e: 
+                print(f"exception during saving answer: {e}")
         
 
         # Оцените результаты, выставьте баллы в соответствующую графу и пришлите изменённый файл в ответном сообщении
@@ -148,10 +151,6 @@ class Bot:
                     self.__dialogs[student_id]['answer'] = next(self.__dialogs[student_id]['generator'])
                     self.__send_message(context, student_id, self.__dialogs[student_id]['answer'])
                     
-
-
-
-
 
         #answer block
         print('\nUser:', self.__db.users.get_user(tg_user.id))
