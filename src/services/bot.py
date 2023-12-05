@@ -169,7 +169,8 @@ class Bot:
             (sentMessageId == TutorTestBranch.FINISH.value.id) or \
             (sentMessageId == TutorCheckBranch.SUCCESS.value.id) or \
             (sentMessageId == TutorSettingsBranch.CLEAR_DATABASE_SUCCESS.value.id) or \
-            (sentMessageId == TutorSettingsBranch.CLEAR_DATABASE_DECLINE.value.id):
+            (sentMessageId == TutorSettingsBranch.CLEAR_DATABASE_DECLINE.value.id) or \
+            (sentMessageId == TutorSettingsBranch.RESTART.value.id):
             self.__restart_dialog(update, context, tg_user.id)
 
 
