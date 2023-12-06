@@ -32,7 +32,6 @@ class TutorSettingsBranchOptions(Enum):
     GROUPS = "Добавить группы"
     TESTS = "Загрузить летучки"
     DATABASE = "Очистить базу"
-    RESTART = "/restart"
 
 class TutorSettingsEnterTestsOptions(Enum):
     FINISH = "Загрузил все летучки"

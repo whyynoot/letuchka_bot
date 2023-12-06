@@ -39,8 +39,8 @@ class TestAnswerProcessor():
 
     def process_answer(self, reference_answer, answer) -> float:
         try:
-            reference_vector = self.embed_bert_cls(reference_answer)
-            answer_vector= self.embed_bert_cls(answer)
+            reference_vector = self.embed_bert_cls(reference_answer.lower())
+            answer_vector= self.embed_bert_cls(answer.lower())
 
             similarity_score = self.calculate_cosine_similarity(reference_vector, answer_vector)
 
