@@ -9,7 +9,8 @@ import xlsxwriter.utility as xls_utility
 from config import BOTTOM_BORDERED_FORMAT, CENTERED_HEADING_FORMAT,\
         COLUMN_BG_COLORED_FORMAT, DEFAULT_FONT_NAME, DEFAULT_FONT_SIZE,\
         HEADING_FORMAT, RIGHT_BORDERED_FORMAT, ROW_BG_COLORED_FORMAT,\
-        RUNTIME_FOLDER, WRAPPED_FORMAT, WRITTEN_TESTS_FOLDERNAME
+        RUNTIME_FOLDER, WRAPPED_FORMAT, WRITTEN_TESTS_FOLDERNAME, \
+        NUM_FORMAT
 
 from ..models.excel import WrittenTestExcel, WrittenTestGroup,\
         WrittenTestQuestionData,\
@@ -234,7 +235,9 @@ class ExcelService():
                 mark = student.answers[i].mark if i < len(student.answers) else 0
                 mark_cell = xls_utility.xl_rowcol_to_cell(2 + row_offset, 2 + col_offset)
                 mark_cells.append(mark_cell)
-                sheet.write(mark_cell, f'={mark}')
+                sheet.write(mark_cell, f'={mark or 0}', book.add_format({
+                    **NUM_FORMAT,
+                }))
                 # sheet.write(mark_cell, f'={mark or 0} * {max_mark_cell}')
 
                 col_offset += 2

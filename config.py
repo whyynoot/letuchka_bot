@@ -43,5 +43,8 @@ ROW_BG_COLORED_FORMAT = {
 WRAPPED_FORMAT = {
         'text_wrap': True
         }
+NUM_FORMAT = {
+    'num_format': '#,##0.00'
+}
 DEFAULT_FONT_SIZE = 10
 DEFAULT_FONT_NAME = 'Arial'
