@@ -266,7 +266,7 @@ class ExcelService():
 
             row_offset += 1
             student_number = 1
-            for student in group.students:
+            for student in sorted(group.students, key=lambda x: x.name):
                 mark_cell = mark_cells[str(student.id)]
 
                 sheet.write(0 + row_offset, 0, student_number)
