@@ -27,9 +27,18 @@ class Bot:
 
     def __register_handlers(self) -> None:
         self.__dispatcher.add_handler(tg_ext.CommandHandler('start', self.__start_command_handler))
+        self.__dispatcher.add_handler(tg_ext.CommandHandler('restart', self.__restart_command_handler))
         self.__dispatcher.add_handler(tg_ext.MessageHandler(tg_ext.Filters.text | tg_ext.Filters.document, self.__message_handler))
 
     #region Command handlers
+
+    def __restart_command_handler(self,
+                                update: tg.Update,
+                                context: tg_ext.CallbackContext) -> None:
+        tg_user = update.effective_user
+
+        if (self.__db.users.get_user(tg_user.id) != None and self.__db.users.get_user(tg_user.id).is_tutor):
+            self.__restart_dialog(update, context, tg_user.id)
 
     def __start_command_handler(self,
                                 update: tg.Update,
