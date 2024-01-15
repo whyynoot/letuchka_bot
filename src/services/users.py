@@ -52,7 +52,7 @@ class UsersTable():
         found = self.__collection.find({ 'is_tutor': False})
         return list(map(lambda doc: self.__student_from_document(doc), found))
     
-    def delete_student_by_tg_id(self, telegram_id: id) -> bool:
+    def delete_student_by_tg_id(self, telegram_id: int) -> bool:
         result = self.__collection.delete_one({'telegram_id': telegram_id})
         return result.deleted_count > 0
 

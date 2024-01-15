@@ -90,8 +90,7 @@ class Bot:
         if (previousMessageId == TutorSettingsBranch.ENTER_DELETE_STUDENT.value.id):
             if update.message.text != '-':
                 tg_id = update.message.text.split('@')[1]
-                self.__db.users.delete_student_by_tg_id(tg_id)
-                del self.__dialogs[tg_id]
+                self.__db.users.delete_student_by_tg_id(int(tg_id))
 
         # Введите группу для открытия 
         if (previousMessageId == TutorSettingsBranch.ENTER_OPEN_GROUP.value.id):
