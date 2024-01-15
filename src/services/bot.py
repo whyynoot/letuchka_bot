@@ -51,9 +51,9 @@ class Bot:
 
 
         if (self.__db.users.get_user(tg_user.id) != None and self.__db.users.get_user(tg_user.id).is_tutor):
-            self.__dialogs[tg_user.id]['generator'] = tutorStartDialog(self.__db.tests.get_all(), self.__db.groups.get_all())
+            self.__dialogs[tg_user.id]['generator'] = tutorStartDialog(self.__db.tests.get_all(), self.__db.groups.get_all(), self.__db.users.get_all_students())
         elif (self.__db.users.get_user(tg_user.id) == None):
-            self.__dialogs[tg_user.id]['generator'] = student_settings_branch(self.__db.groups.get_all())
+            self.__dialogs[tg_user.id]['generator'] = student_settings_branch(self.__db.groups.get_open())
         else:
             self.__dialogs[tg_user.id]['generator'] = student_exists_branch()
         
@@ -79,7 +79,30 @@ class Bot:
         if (previousMessageId == TutorSettingsBranch.ENTER_GROUPS.value.id):
             if update.message.text != '-':
                 for name in update.message.text.split('\n'):
-                    self.__db.groups.create(RawGroup(name))
+                    self.__db.groups.create(RawGroup(name, True))
+
+        # Введите группы для удаления 
+        if (previousMessageId == TutorSettingsBranch.ENTER_DELETE_GROUP.value.id):
+            if update.message.text != '-':
+                self.__db.groups.delete_group("name",  update.message.text)
+
+        # Введите студента для удаления 
+        if (previousMessageId == TutorSettingsBranch.ENTER_DELETE_STUDENT.value.id):
+            if update.message.text != '-':
+                tg_id = update.message.text.split('@')[1]
+                self.__db.users.delete_student_by_tg_id(tg_id)
+                del self.__dialogs[tg_id]
+
+        # Введите группу для открытия 
+        if (previousMessageId == TutorSettingsBranch.ENTER_OPEN_GROUP.value.id):
+            if update.message.text != '-':
+                self.__db.groups.update_group('name', update.message.text, 'open', True)
+
+        # Введите группу для закрытия 
+        if (previousMessageId == TutorSettingsBranch.ENTER_CLOSE_GROUP.value.id):
+            if update.message.text != '-':
+                self.__db.groups.update_group('name', update.message.text, 'open', False)
+
         # Загрузите файлы с летучками по этому шаблону. Будьте внимательны, название файла будет названием летучки.
         # или
         # Пришлите файл в формате .xlsx
@@ -99,7 +122,8 @@ class Bot:
         # Привет!
         # Из какой ты группы?
         elif (previousMessageId == StudentSettingsBranch.SELECT_GROUP.value.id):
-            self.__rawStudents[tg_user.id] = RawStudent(tg_user.id, '', self.__db.groups.get('name', update.message.text).id)
+            if self.__db.groups.is_open('name', update.message.text):
+                self.__rawStudents[tg_user.id] = RawStudent(tg_user.id, '', self.__db.groups.get('name', update.message.text).id)
         # Введи своё ФИО
         elif (previousMessageId == StudentSettingsBranch.ENTER_FIO.value.id):
             self.__rawStudents[tg_user.id].name = update.message.text

@@ -3,7 +3,6 @@ import random
 from typing import Any, Union, cast
 
 from pymongo import database
-import Levenshtein
 
 from config import TEST_COLLECTION_NAME, WRITTEN_TEST_COLLECTION_NAME
 
@@ -52,6 +51,7 @@ class TestsTable():
     def get_all(self) -> list[Test]:
         found = self.__collection.find()
         return list(map(lambda doc: self.__test_from_document(doc), found))
+    
 
     def remove_all(self) -> None:
         self.__collection.delete_many({})
@@ -358,17 +358,18 @@ class TestsTable():
             student_test = self.get_student(None, 'student_id', student_user.id, written_test)
             if student_test is None:
                 raise Exception('Cannot save test results. Student test was not found')
-
+            print(student_test)
+            print(student.marks)
             student_test.sum_mark = 0
             for i in range(len(student_test.answers)):
                 question = self.get_question(written_test.test_id, student_test.variant_id, i)
                 if question is None:
                     raise Exception('Cannot save test results. Question was not found')
+                
 
-                mark = student.marks[i]
-                if mark is not None:
-                    student_test.answers[i].mark = mark / question.max_mark
-                student_test.sum_mark += (student_test.answers[i].mark or 0) * question.max_mark
+                if student.marks[i] is not None:
+                    student_test.sum_mark += (student.marks[i])
+                    print(student_test.sum_mark)
 
         self.__written_collection.update_one({ '_id': written_test.id },\
                 {'$set': self.__written_to_document(written_test)})

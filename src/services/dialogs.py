@@ -5,6 +5,7 @@ from telegram import ReplyKeyboardMarkup, ReplyKeyboardRemove
 
 from ..models.group import Group
 from ..models.test import Test, TestQuestion
+from ..models.user import Student
 
 TEST_QUESTION_ID = uuid.uuid4()
 
@@ -29,9 +30,13 @@ class TutorDialogOptions(Enum):
     CHECK = "Проверить летучки"
 
 class TutorSettingsBranchOptions(Enum):
-    GROUPS = "Добавить группы"
     TESTS = "Загрузить летучки"
     DATABASE = "Очистить базу"
+    GROUP_ADD = "Добавить группы"
+    DELETE_GROUP = 'Удалить группу'
+    DELETE_STUDENT = 'Удалить ученика'
+    CLOSE_GROUP = 'Закрыть набор'
+    OPEN_GROUP = 'Открыть набор'
 
 class TutorSettingsEnterTestsOptions(Enum):
     FINISH = "Загрузил все летучки"
@@ -43,9 +48,14 @@ class TutorTestSuccessOptions(Enum):
     STOP = "Остановить летучку"
 class TutorStartDialog(Enum):
     HELLO = DialogAnswerText("Здравствуйте \nЧто необходимо сделать?")
+
 class TutorSettingsBranch(Enum):
     CHOOSE_OPTION = DialogAnswerText("Выберите, что хотите настроить")
     ENTER_GROUPS = DialogAnswerText("Введите группы этого семестра списком (элементы разделяйте переносом строки)")
+    ENTER_DELETE_GROUP = DialogAnswerText("Выберите группу для удаления")
+    ENTER_DELETE_STUDENT = DialogAnswerText("Выберите ученика для удаления")
+    ENTER_OPEN_GROUP = DialogAnswerText("Выберите группу для открытия набора")
+    ENTER_CLOSE_GROUP = DialogAnswerText("Выберите группу для закрытия набора")
     ENTER_TESTS = DialogAnswerText("Загрузите файлы с летучками по этому шаблону. Будьте внимательны, название файла будет названием летучки.")
     MORE_TESTS = DialogAnswerText("Вы можете загрузить ещё файлы, либо завершить настройку.")
     CLEAR_DATABASE = DialogAnswerText("Вы точно хотите удалить все данные из базы?")
@@ -53,12 +63,17 @@ class TutorSettingsBranch(Enum):
     CLEAR_DATABASE_DECLINE = DialogAnswerText("Хорошо, не будем очищать базу.")
     FILE_FORMAT_ERROR = DialogAnswerText("Пришлите файл в формате .xlsx")
     SUCCESS = DialogAnswerText("Настройка завершена")
-
+    
 class TutorTestBranch(Enum):
     SELECT_TEST = DialogAnswerText("Выберите летучку")
     SELECT_GROUP = DialogAnswerText("Выберете группу")
     SUCCESS = DialogAnswerText(["Летучка началась", "Можете остановить летучку кнопкой ниже"])
     FINISH = DialogAnswerText("Летучка завершена!")
+
+class TutorGroupBranch(Enum):
+    SELECT_GROUP = DialogAnswerText("Выберете группу")
+    SUCESS = DialogAnswerText("Действие выполнено успешно")
+    DECLINE = DialogAnswerText("Не получилось выполнить действие, повторите.")
 
 class TutorCheckBranch(Enum):
     SEND_FILE = DialogAnswerText("Оцените результаты, выставьте баллы в соответствующую графу и пришлите изменённый файл в ответном сообщении")
@@ -85,25 +100,50 @@ def ask_file(question): #deprecated - Пока не придумал, как и�
         answer = yield DialogAnswer(TutorSettingsBranch.FILE_FORMAT_ERROR.value)
     return True
 
-def tutorStartDialog(tests: List[Test], groups: List[Group]):
-    answer = yield DialogAnswer(TutorStartDialog.HELLO.value, create_keyboard([[option.value for option in TutorDialogOptions]]))
+def tutorStartDialog(tests: List[Test], groups: List[Group], students: List[Student]):
+    answer = yield DialogAnswer(TutorStartDialog.HELLO.value, create_keyboard([[option.value] for option in TutorDialogOptions]))
     if answer.text == TutorDialogOptions.SETTINGS.value:
-        yield from tutor_settings_branch()
+        yield from tutor_settings_branch(groups, students)
     elif answer.text == TutorDialogOptions.TEST.value:
         yield from tutor_test_branch(tests, groups)
     else:
         yield from tutor_check_branch()
 
-def tutor_settings_branch():
-    answer = yield DialogAnswer(TutorSettingsBranch.CHOOSE_OPTION.value, create_keyboard([[option.value for option in TutorSettingsBranchOptions]]))
-    if answer.text == TutorSettingsBranchOptions.GROUPS.value:
+def tutor_settings_branch(groups: List[Group], students: List[Student]):
+    answer = yield DialogAnswer(TutorSettingsBranch.CHOOSE_OPTION.value, create_keyboard([[option.value] for option in TutorSettingsBranchOptions]))
+    # Группа добавить
+    if answer.text == TutorSettingsBranchOptions.GROUP_ADD.value:
         yield DialogAnswer(TutorSettingsBranch.ENTER_GROUPS.value)
         yield DialogAnswer(TutorSettingsBranch.SUCCESS.value)
+    
+    # Группы удалить
+    elif answer.text == TutorSettingsBranchOptions.DELETE_GROUP.value:
+        answer = yield DialogAnswer(TutorSettingsBranch.ENTER_DELETE_GROUP.value, create_keyboard([[group.name] for group in groups]))
+        yield DialogAnswer(TutorSettingsBranch.SUCCESS.value)
+    
+    # Группа открыть набор
+    elif answer.text == TutorSettingsBranchOptions.OPEN_GROUP.value:
+        answer = yield DialogAnswer(TutorSettingsBranch.ENTER_OPEN_GROUP.value, create_keyboard([[group.name] for group in groups if not group.open]))
+        yield DialogAnswer(TutorSettingsBranch.SUCCESS.value)
+    
+    # Группа закрыть набор
+    elif answer.text == TutorSettingsBranchOptions.CLOSE_GROUP.value:
+        answer = yield DialogAnswer(TutorSettingsBranch.ENTER_CLOSE_GROUP.value, create_keyboard([[group.name] for group in groups  if group.open]))
+        yield DialogAnswer(TutorSettingsBranch.SUCCESS.value)
+    
+    # Ученик удалить
+    elif answer.text == TutorSettingsBranchOptions.DELETE_STUDENT.value:
+        answer = yield DialogAnswer(TutorSettingsBranch.ENTER_DELETE_STUDENT.value, create_keyboard([[f"{student.name} | @{student.id}"] for student in students]))
+        yield DialogAnswer(TutorSettingsBranch.SUCCESS.value)
+    
+    # Загрузите летучки
     elif answer.text == TutorSettingsBranchOptions.TESTS.value:
         answer = yield DialogAnswer(TutorSettingsBranch.ENTER_TESTS.value, create_keyboard([[option.value for option in TutorSettingsEnterTestsOptions]]))
         while not(answer.text == TutorSettingsEnterTestsOptions.FINISH.value):
             answer = yield DialogAnswer([])
         yield DialogAnswer(TutorSettingsBranch.SUCCESS.value)
+
+    # Очистить базу данных, вы уверены?
     elif answer.text == TutorSettingsBranchOptions.DATABASE.value:
         answer = yield DialogAnswer(TutorSettingsBranch.CLEAR_DATABASE.value, create_keyboard([[option.value for option in TutorSettingsClearDatabaseOptions]]))
         if answer.text == TutorSettingsClearDatabaseOptions.CONFIRM.value:
@@ -112,8 +152,8 @@ def tutor_settings_branch():
             yield DialogAnswer(TutorSettingsBranch.CLEAR_DATABASE_DECLINE.value)
 
 def tutor_test_branch(tests: List[Test], groups: List[Group]):
-    yield DialogAnswer(TutorTestBranch.SELECT_TEST.value, create_keyboard([[test.name for test in tests]]))
-    yield DialogAnswer(TutorTestBranch.SELECT_GROUP.value, create_keyboard([[group.name for group in groups]]))
+    yield DialogAnswer(TutorTestBranch.SELECT_TEST.value, create_keyboard([[test.name] for test in tests]))
+    yield DialogAnswer(TutorTestBranch.SELECT_GROUP.value, create_keyboard([[group.name] for group in groups]))
     answer = yield DialogAnswer(TutorTestBranch.SUCCESS.value, create_keyboard([[option.value for option in TutorTestSuccessOptions]]))
     if (answer.text == TutorTestSuccessOptions.STOP.value):
         yield DialogAnswer(TutorTestBranch.FINISH.value)
@@ -123,7 +163,7 @@ def tutor_check_branch():
     yield DialogAnswer(TutorCheckBranch.SUCCESS.value)
 
 def student_settings_branch(groups: List[Group]):
-    yield DialogAnswer(StudentSettingsBranch.SELECT_GROUP.value, create_keyboard([[group.name for group in groups]]))
+    yield DialogAnswer(StudentSettingsBranch.SELECT_GROUP.value, create_keyboard([[group.name] for group in groups if group.open]))
     yield DialogAnswer(StudentSettingsBranch.ENTER_FIO.value)
     yield DialogAnswer(StudentSettingsBranch.SUCCESS.value)
 

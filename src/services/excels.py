@@ -89,9 +89,11 @@ class ExcelService():
                 continue
 
             for student_row in student_rows[3:]:
+                print(student_row)
                 student_name = student_row[0]
-                marks = list(map(lambda mark: None if pd.isna(mark) else float(mark),\
+                marks = list(map(lambda mark: float(mark),\
                         student_row[3:-1:2]))
+                print(marks)
                 student_data = UpdatedStudentData(student_name, marks)
                 student_datas.append(student_data)
         return UpdatedTestExcel(test_name, test_date, student_datas)
@@ -236,7 +238,7 @@ class ExcelService():
                 mark = student.answers[i].mark if i < len(student.answers) else 0
                 mark_cell = xls_utility.xl_rowcol_to_cell(2 + row_offset, 2 + col_offset)
                 mark_cells.append(mark_cell)
-                sheet.write(mark_cell, f'={mark or 0}', book.add_format({
+                sheet.write(mark_cell, mark, book.add_format({
                     **NUM_FORMAT,
                 }))
                 # sheet.write(mark_cell, f'={mark or 0} * {max_mark_cell}')

@@ -47,6 +47,14 @@ class UsersTable():
     def get_students(self, group_id: uuid.UUID) -> list[Student]:
         found = self.__collection.find({ 'is_tutor': False, 'group_id': group_id })
         return list(map(lambda doc: self.__student_from_document(doc), found))
+    
+    def get_all_students(self) -> list[Student]:
+        found = self.__collection.find({ 'is_tutor': False})
+        return list(map(lambda doc: self.__student_from_document(doc), found))
+    
+    def delete_student_by_tg_id(self, telegram_id: id) -> bool:
+        result = self.__collection.delete_one({'telegram_id': telegram_id})
+        return result.deleted_count > 0
 
     def get_student(self, property: str, value: Any) -> Union[Student, None]:
         found = self.__collection.find_one({property: value})
@@ -54,7 +62,7 @@ class UsersTable():
         return self.__student_from_document(found)
 
     def __student_from_document(self, doc: dict) -> Student:
-        return Student(doc['telegram_id'], doc['is_tutor'], doc['name'], doc['group_id'])
+        return Student(id=doc['telegram_id'], is_tutor=doc['is_tutor'], name=doc['name'], group_id=doc['group_id'])
 
     def remove_students(self) -> None:
         self.__collection.delete_many({ '$eq': { 'is_tutor': False } })
