@@ -17,51 +17,9 @@ from ..models.test import RawTest, Test, TestAnswerValue, TestQuestion,\
         TestVariant, StudentWrittenTest,\
         WrittenTest, TestAnswer, TestAnswerType
 from ..utils.get_from_list import get_from_list
-import torch
-from transformers import AutoTokenizer, AutoModel
-from sklearn.metrics.pairwise import cosine_similarity
 from ..utils.get_numbers_from_str import extract_numbers
 
-
-class TestAnswerProcessor():
-    MODEL_PATH = "src/rubert-tiny2"
-
-    def __init__(self):
-        try:
-            self.__tokenizer = AutoTokenizer.from_pretrained(self.MODEL_PATH)
-            self.__model = AutoModel.from_pretrained(self.MODEL_PATH)
-
-            # Only use if GPU available
-            if torch.cuda.is_available():
-                self.__model.cuda()
-        except Exception as e:
-            raise Exception(f"Cannot load TestAnswerProcessor: {e}")
-
-    def process_answer(self, reference_answer, answer) -> float:
-        try:
-            reference_vector = self.embed_bert_cls(reference_answer.lower())
-            answer_vector= self.embed_bert_cls(answer.lower())
-
-            similarity_score = self.calculate_cosine_similarity(reference_vector, answer_vector)
-
-            return float(similarity_score)
-
-        except Exception as e:
-            raise Exception(f"Error processing answer: {e}")
-
-    def embed_bert_cls(self, text):
-        t = self.__tokenizer(text, padding=True, truncation=True, return_tensors='pt')
-        with torch.no_grad():
-            model_output = self.__model(**{k: v.to(self.__model.device) for k, v in t.items()})
-        embeddings = model_output.last_hidden_state[:, 0, :]
-        embeddings = torch.nn.functional.normalize(embeddings)
-        return embeddings[0].cpu().numpy()
-
-    def calculate_cosine_similarity(self, vector1, vector2):
-        return cosine_similarity(vector1.reshape(1, -1), vector2.reshape(1, -1))[0, 0]
          
-
-
 class TestsTable():
 
     def __init__(self,
@@ -72,7 +30,6 @@ class TestsTable():
         self.__students = UsersTable(db)
         self.__groups = GroupsTable(db)
         self.__excel = ExcelService()
-        self.__answer_processor = TestAnswerProcessor()
         
 
 
@@ -116,7 +73,7 @@ class TestsTable():
                 answer = question.answer or ''
                 max_mark = question.max_mark
 
-                question_data_element = WrittenTestQuestionData(question_text, answer, max_mark)
+                question_data_element = WrittenTestQuestionData(question_text, answer, max_mark, question.type)
                 question_data.append(question_data_element)
 
             student_data: list[WrittenTestStudentData] = []
@@ -377,62 +334,11 @@ class TestsTable():
             question: TestQuestion,
             answer: TestAnswerValue) -> Union[float, None]:
         print(question, answer)
-        if question.type == TestAnswerType.LECTURE.value:
-            similarity = self.__answer_processor.process_answer(reference_answer=question.answer, answer=answer)
-            return self.mark_based_on_similarity(similarity=similarity, max_mark=question.max_mark)
-        elif question.type == TestAnswerType.MULTIPLE_CHOICE.value or question.type == TestAnswerType.SINGLE_CHOICE.value:
+        if question.type == TestAnswerType.MULTIPLE_CHOICE.value or question.type == TestAnswerType.SINGLE_CHOICE.value:
             answer_list = extract_numbers(answer)
             return self.mark_based_on_accuracy(question.answer_variants, answer_list, question.max_mark)
         else:
             return 0
-        #     return self.mark_based_on_similarity(similarity=similarity, max_mark=question.max_mark)
-
-        """Checks test question answer and returns mark if possible"""
-        # if question.type == TestAnswerType.LECTURE.value:
-        #     print(answer, question.answer, question.max_mark, question)
-        #     print("Trying to process answer simillarity...")
-        #     similarity = self.__answer_processor.process_answer(reference_answer=question.answer, answer=answer)
-            
-        #     return self.mark_based_on_similarity(similarity=similarity, max_mark=question.max_mark)
-
-        # if question.type == TestAnswerType.SINGLE_CHOICE.value:
-        #     print("Single choice answer processing...")
-        #     print(answer, question.answer, type(answer), type(question.answer))
-        #     if str(answer) == str(question.answer):
-        #         return float(question.max_mark)
-        #     else:
-        #         return 0.0
-
-        # if question.type == TestAnswerType.MULTIPLE_CHOICE.value:
-        #     print(answer, question.answer_variants, question.max_mark, question)
-        #     if question.answer_variants is None:
-        #         raise Exception('Cannot check answer. Answer variants' +\
-        #                 ' are not provided for a MULTIPLE_CHOICE question.')
-        #     print(question.answer_variants, type(question.answer_variants))
-        #     print(answer, type(answer))
-        #     correct_answers = []
-        #     student_answers = []
-        #     if answer == question.answer_variants:
-        #         return question.max_mark
-        #     else:
-        #         return 0
-            # for i in range(len(student_answers)):
-
-
-            # correct_answers = []
-            # student_answers = []
-            # for i in range(len(question.answer_variants)):
-            #     correct_answers.append(i + 1 in cast(list[int], question.answer))
-            #     student_answers.append(i in cast(list[int], answer))
-            # variant_count = len(question.answer_variants)
-            # student_count = 0
-            # for i in range(variant_count):
-            #     if correct_answers[i] == student_answers[i]:
-            #         student_count += 1
-            #return student_count / variant_count
-            
-
-        #return None
 
     def post_finished(self, filename: str) -> WrittenTest:
         """
@@ -528,7 +434,7 @@ class TestsTable():
         mark = 0.0
 
         reference_list = sorted(reference_list)
-        received_list = sorted(received_list)
+        received_list = sorted(list(set(received_list)))
 
         reference_flag = len(reference_list)
         for i in range(len(received_list)):

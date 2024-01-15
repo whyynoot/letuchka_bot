@@ -1,7 +1,7 @@
 from dataclasses import dataclass
 from typing import Union
 
-from .test import TestAnswerValue
+from .test import TestAnswerValue, TestAnswerType
 
 
 @dataclass
@@ -14,6 +14,7 @@ class WrittenTestQuestionData:
     question: str
     answer: TestAnswerValue
     max_mark: float
+    type: TestAnswerType
 
 @dataclass
 class WrittenTestStudentData:

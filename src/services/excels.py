@@ -171,10 +171,11 @@ class ExcelService():
                 }))
 
             sheet.set_column_pixels(1 + col_offset + 1, 1 + col_offset + 1, 45, right_bordered_format)
-            sheet.write(0, 1 + col_offset + 1, 'Балл', book.add_format({
-                **CENTERED_HEADING_FORMAT,
+            sheet.write(0, 1 + col_offset + 1, f'Балл ({question.type})', book.add_format({
                 **ROW_BG_COLORED_FORMAT,
                 **RIGHT_BORDERED_FORMAT,
+                **WRAPPED_FORMAT,
+                **HEADING_FORMAT,
                 }))
 
             mark_cell = xls_utility.xl_rowcol_to_cell(1, 1 + col_offset + 1)
