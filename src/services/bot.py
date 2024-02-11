@@ -101,7 +101,11 @@ class Bot:
         if (previousMessageId == TutorSettingsBranch.ENTER_CLOSE_GROUP.value.id):
             if update.message.text != '-':
                 self.__db.groups.update_group('name', update.message.text, 'open', False)
-
+        
+                # Введите группу для закрытия 
+        if (previousMessageId == TutorSettingsBranch.DELETE_TESTS.value.id):
+            if update.message.text == TutorSettingsClearDatabaseOptions.CONFIRM.value:
+                self.__db.tests.remove_all()
         # Загрузите файлы с летучками по этому шаблону. Будьте внимательны, название файла будет названием летучки.
         # или
         # Пришлите файл в формате .xlsx
@@ -166,6 +170,9 @@ class Bot:
                 self.__db.tests.save_answer(tg_user.id, self.__writtenTest.id, question_id, update.message.text)
             except Exception as e: 
                 print(f"exception during saving answer: {e}")
+
+            # OPTIONAL: DELETE MESSAGES AFTER ANSWER IN TEST 
+            self.__delete_message(context, tg_user.id, context.bot_data[tg_user.id]["last_sent_message_id"])
         
 
         # Оцените результаты, выставьте баллы в соответствующую графу и пришлите изменённый файл в ответном сообщении
@@ -201,20 +208,31 @@ class Bot:
             (sentMessageId == TutorTestBranch.FINISH.value.id) or \
             (sentMessageId == TutorCheckBranch.SUCCESS.value.id) or \
             (sentMessageId == TutorSettingsBranch.CLEAR_DATABASE_SUCCESS.value.id) or \
-            (sentMessageId == TutorSettingsBranch.CLEAR_DATABASE_DECLINE.value.id):
+            (sentMessageId == TutorSettingsBranch.CLEAR_DATABASE_DECLINE.value.id) or \
+            (sentMessageId == TutorSettingsBranch.DELETE_TESTS_SUCCESS.value.id) or \
+            (sentMessageId == TutorSettingsBranch.DELETE_TESTS_DECLINE.value.id):
             self.__restart_dialog(update, context, tg_user.id)
 
 
     #endregion
 
     #region helpers
+            
+    def __delete_message(self, context, user_id, message_id):
+        try:
+            context.bot.deleteMessage(chat_id=user_id, message_id=message_id)
+        except Exception as e: 
+            print(f"error deleting message from user {e}, ignoring...")
 
     def __send_message(self, context, user_id, answer):
         try:
             for message in answer.text.messages:
-                context.bot.sendMessage(chat_id=user_id, text=message, reply_markup=answer.markup)
+                sent_message = context.bot.sendMessage(chat_id=user_id, text=message, reply_markup=answer.markup)
+            
+            payload = {user_id: {"last_sent_message_id": sent_message.message_id}}
+            context.bot_data.update(payload)
         except Exception as e: 
-            print("error sending message to user, ignoring...")
+            print(f"error sending message to user {e}, ignoring...")
 
     def __restart_dialog(self, update, context, user_id):
         del self.__dialogs[user_id]
@@ -238,5 +256,6 @@ class Bot:
         self.__updater.start_polling()
         print('Bot has started')
         self.__updater.idle()
+
 
     #endregion

@@ -2,6 +2,7 @@ from enum import Enum
 from typing import List, Union
 import uuid
 from telegram import ReplyKeyboardMarkup, ReplyKeyboardRemove
+from random import shuffle
 
 from ..models.group import Group
 from ..models.test import Test, TestQuestion
@@ -37,11 +38,15 @@ class TutorSettingsBranchOptions(Enum):
     DELETE_STUDENT = 'Удалить ученика'
     CLOSE_GROUP = 'Закрыть набор'
     OPEN_GROUP = 'Открыть набор'
+    DELETE_TESTS = 'Удалить летучки'
 
 class TutorSettingsEnterTestsOptions(Enum):
     FINISH = "Загрузил все летучки"
 
 class TutorSettingsClearDatabaseOptions(Enum):
+    CONFIRM = "Да, удалить всё!"
+    DECLINE = "Нет, я передумал"
+class TutorSettingsClearTestOptions(Enum):
     CONFIRM = "Да, удалить всё!"
     DECLINE = "Нет, я передумал"
 class TutorTestSuccessOptions(Enum):
@@ -59,8 +64,11 @@ class TutorSettingsBranch(Enum):
     ENTER_TESTS = DialogAnswerText("Загрузите файлы с летучками по этому шаблону. Будьте внимательны, название файла будет названием летучки.")
     MORE_TESTS = DialogAnswerText("Вы можете загрузить ещё файлы, либо завершить настройку.")
     CLEAR_DATABASE = DialogAnswerText("Вы точно хотите удалить все данные из базы?")
+    DELETE_TESTS = DialogAnswerText("Вы точно хотите удалить все данные из базы?")
     CLEAR_DATABASE_SUCCESS = DialogAnswerText("База успешно очищена, можно заново настраивать бота.")
     CLEAR_DATABASE_DECLINE = DialogAnswerText("Хорошо, не будем очищать базу.")
+    DELETE_TESTS_SUCCESS = DialogAnswerText("Летучки удалены")
+    DELETE_TESTS_DECLINE = DialogAnswerText("Все осталось на своих местах!")
     FILE_FORMAT_ERROR = DialogAnswerText("Пришлите файл в формате .xlsx")
     SUCCESS = DialogAnswerText("Настройка завершена")
     
@@ -121,6 +129,13 @@ def tutor_settings_branch(groups: List[Group], students: List[Student]):
         answer = yield DialogAnswer(TutorSettingsBranch.ENTER_DELETE_GROUP.value, create_keyboard([[group.name] for group in groups]))
         yield DialogAnswer(TutorSettingsBranch.SUCCESS.value)
     
+    elif answer.text == TutorSettingsBranchOptions.DELETE_TESTS.value:
+        answer = yield DialogAnswer(TutorSettingsBranch.DELETE_TESTS.value, create_keyboard([[option.value for option in TutorSettingsClearDatabaseOptions]]))
+        if answer.text == TutorSettingsClearDatabaseOptions.CONFIRM.value:
+            yield DialogAnswer(TutorSettingsBranch.DELETE_TESTS_SUCCESS.value)
+        if answer.text == TutorSettingsClearDatabaseOptions.DECLINE.value:
+            yield DialogAnswer(TutorSettingsBranch.DELETE_TESTS_DECLINE.value)
+    
     # Группа открыть набор
     elif answer.text == TutorSettingsBranchOptions.OPEN_GROUP.value:
         answer = yield DialogAnswer(TutorSettingsBranch.ENTER_OPEN_GROUP.value, create_keyboard([[group.name] for group in groups if not group.open]))
@@ -172,6 +187,9 @@ def student_exists_branch():
 
 
 def student_test_branch(test_name: str, questions: List[TestQuestion]):
+    # Mixing questions inccorect answers recieved
+    # shuffle(questions)
+
     yield DialogAnswer(DialogAnswerText(["ВНИМАНИЕ! Начинаем летучку %s" % test_name, "Вопрос %i: %s" % (1, questions[0].text)], TEST_QUESTION_ID))
     for index, question in enumerate(questions[1:]):
         yield DialogAnswer(DialogAnswerText("Вопрос %i: %s" % (index+2, question.text), TEST_QUESTION_ID))
